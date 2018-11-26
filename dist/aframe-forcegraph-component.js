@@ -120,15 +120,19 @@
 	    linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
 	    onNodeCenterHover: {parse: parseFn, default: function() {}},
 	    onLinkCenterHover: {parse: parseFn, default: function() {}},
-	    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
+	  	onNodeClicked: {parse: parseFn, default: function() {console.log("node clicked. (no function defined..)")}},
+	  	onLinkClicked: {parse: parseFn, default: function() {console.log("link clicked. (no function defined..)")}},
+		forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
 	    d3AlphaDecay: {type: 'number', default: 0.0228},
 	    d3VelocityDecay: {type: 'number', default: 0.4},
 	    warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
 	    cooldownTicks: {type: 'int', default: 1e18}, // Simulate infinity (int parser doesn't accept Infinity object)
 	    cooldownTime: {type: 'int', default: 15000}, // ms
 	    onEngineTick: {parse: parseFn, default: function() {}},
-	    onEngineStop: {parse: parseFn, default: function() {}}
-	  },
+	    onEngineStop: {parse: parseFn, default: function() {}},
+        useLaserRay: {type: 'boolean', default: false}
+
+      },
 
 	  init: function () {
 	    var state = this.state = {}; // Internal state
@@ -237,7 +241,8 @@
 	      'cooldownTicks',
 	      'cooldownTime',
 	      'onEngineTick',
-	      'onEngineStop'
+	      'onEngineStop',
+			'useLaserRay'
 	    ];
 
 	    fgProps
@@ -254,12 +259,27 @@
 
 	  tick: function(t, td) {
 	    // Update tooltip
-	    var centerRaycaster = new THREE.Raycaster();
-	    centerRaycaster.linePrecision = this.data.linkHoverPrecision;
-	    centerRaycaster.setFromCamera(
-	      new THREE.Vector2(0, 0), // Canvas center
-	      this.state.cameraObj
-	    );
+
+		  var centerRaycaster;
+
+		  var ray = this.el.sceneEl.querySelector('#liney').components.raycaster;
+
+          if(ray != undefined && this.data.useLaserRay)
+		  {
+			  centerRaycaster = ray.raycaster;
+			  centerRaycaster.linePrecision = this.data.linkHoverPrecision;
+		  }
+		  else
+		  {
+			  var centerRaycaster = new THREE.Raycaster();
+			  centerRaycaster.linePrecision = this.data.linkHoverPrecision;
+
+			  centerRaycaster.setFromCamera(
+				  new THREE.Vector2(0, 0), // Canvas center
+				  this.state.cameraObj
+			  );
+		  }
+
 
 	    var intersects = centerRaycaster.intersectObjects(this.state.forceGraph.children)
 	      .filter(function(o) { // Check only node/link objects
@@ -271,26 +291,40 @@
 	      });
 
 	    var topObject = intersects.length ? intersects[0].object : null;
+	    const objType = topObject ? topObject.__graphObjType : null;
+	    const prevObjType = this.state.hoverObj ? this.state.hoverObj.__graphObjType : null;
+	    const prevObjData = this.state.hoverObj ? this.state.hoverObj.__data : null;
 
-	    if (topObject !== this.state.hoverObj) {
-	      const prevObjType = this.state.hoverObj ? this.state.hoverObj.__graphObjType : null;
-	      const prevObjData = this.state.hoverObj ? this.state.hoverObj.__data : null;
-	      const objType = topObject ? topObject.__graphObjType : null;
-	      const objData = topObject ? topObject.__data : null;
+	    //hovering
+		if (topObject !== this.state.hoverObj) {
+		  const objData = topObject ? topObject.__data : null;
 
-	      if (prevObjType && prevObjType !== objType) {
-	        // Hover out
-	        this.data['on' + (prevObjType === 'node' ? 'Node' : 'Link') + 'CenterHover'](null, prevObjData);
-	      }
-	      if (objType) {
-	        // Hover in
-	        this.data['on' + (objType === 'node' ? 'Node' : 'Link') + 'CenterHover'](objData, prevObjType === objType ? prevObjData : null);
-	      }
+		  if (prevObjType && prevObjType !== objType) {
+			// Hover out
+			this.data['on' + (prevObjType === 'node' ? 'Node' : 'Link') + 'CenterHover'](null, prevObjData);
+		  }
+		  if (objType) {
+			// Hover in
+			var inhov = this.data['on' + (objType === 'node' ? 'Node' : 'Link') + 'CenterHover'](topObject, prevObjType === objType ? prevObjData : null);
+			// console.log(this)
+		  }
 
-	      this.state.hoverObj = topObject;
-	      this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
-	      this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
-	    }
+
+		  this.state.hoverObj = topObject;
+		  this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
+		  this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
+		}
+
+	  //input handling
+	  switch(this.state.input)
+	  {
+		  case 'mouseclicked':
+			  // console.log(topObject);
+			  if(topObject)
+			  	this.data['on' + (objType === 'node' ? 'Node' : 'Link') + 'Clicked'](topObject, prevObjType === objType ? prevObjData : null);
+			  break;
+	  }
+	  this.state.input = "";
 
 	    // Run force-graph ticker
 	    this.state.forceGraph.tickFrame();
