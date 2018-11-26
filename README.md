@@ -1,4 +1,46 @@
-## aframe-forcegraph-component
+## extension of the aframe-forcegraph-component
+
+the force graph API now supports click events:
+### API extension:
+| Property             | Description                                                                                                                | Default Value |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| on-node-clicked | Callback function for node click events at a hovered node | none||
+| on-link-clicked | Callback function for link click events at a hovered link | none
+
+### vive-control support (my-vive component):
+| Property             | Description                                                                                                                | Default Value |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| camID | specify the ID of the camera of which the look-at vector will be used for flight controls | none||
+| elID | specify the ID of the enity that should be moved along the look-at vector of the camera | none
+| triggerConf | specify the behavior of the trigger on the vive controller | 0
+| on-trigger-down | Callback function for pressing the trigger on the vive controller | none
+| on-trigger-up | Callback function for releasing the trigger on the vive controller | none
+
+the "my-vive" component supports flight controls along the camera look-at vector using the trackpad (adapted from the aframe wasd controls)
+
+### other features:
+* ##### hardcoded support for a laser controller (if activated overrides the camera raycaster for selecting nodes/links)
+```html
+<a-entity laser-controls id="liney"  line="color: red; opacity: 0.75" ></a-entity>
+```
+```js
+    laser.addEventListener('componentinitialized', function (evt) {
+        if (evt.detail.name == 'line' || evt.detail.name == 'raycaster')
+            fgraph.components.forcegraph.data.useLaserRay = true;    });
+```
+```js
+var ray = this.el.sceneEl.querySelector('#liney').components.raycaster;
+if(ray != undefined && this.data.useLaserRay)
+```
+
+
+* ##### implementations of node-on-hover API interface & a fly-to-node-on-click feature
+    see graph_ext.js
+
+please check the "basic" example for an implementation of the features.
+------
+
+
 
 [![Version](http://img.shields.io/npm/v/aframe-forcegraph-component.svg?style=flat-square)](https://npmjs.org/package/aframe-forcegraph-component)
 [![License](http://img.shields.io/npm/l/aframe-forcegraph-component.svg?style=flat-square)](https://npmjs.org/package/aframe-forcegraph-component)
